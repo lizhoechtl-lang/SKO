@@ -760,10 +760,13 @@ function NetworkView({ user }) {
 /* ---------------------------------------------------------------------- */
 function VenueView() {
   const spots = [
-    { icon: Building2, title: "Istanbul Congress Center", sub: "Main venue · all keynotes & breakouts", detail: "Harbiye, Şişli — enter via the Darülbedayi Caddesi lobby. Badge pickup is at the ground floor desk from 07:30 daily." },
-    { icon: Coffee, title: "Bosphorus Terrace", sub: "Welcome reception, Day 1", detail: "Rooftop terrace, ICC north wing. Casual dress, cocktails from 18:00." },
-    { icon: Ship, title: "Bosphorus Departure Pier", sub: "Gala dinner cruise, Day 4", detail: "10-minute shuttle from ICC — buses run continuously from 19:00. Boarding closes at 19:45 sharp." },
-    { icon: PartyPopper, title: "Marmara Terrace", sub: "Farewell brunch, Day 5", detail: "ICC south wing. Airport shuttles depart from the same terrace every 30 minutes from 09:30." },
+    { icon: Building2, title: "Istanbul Ballroom", sub: "Main plenary · keynotes, panels & general sessions", detail: "The hotel's main ballroom, used for every Strategy & Leadership session across all five days — including the opening and closing keynotes, the Executive Leadership Panel, and Regional Leaders Panel." },
+    { icon: Users, title: "Pera", sub: "Breakout room · Stage 7 & Product tracks", detail: "One of three parallel breakout rooms, hosting the Stage 7 Foundations and Sales Director sessions, and rotating Product Track sessions." },
+    { icon: Users, title: "Asmalımescit", sub: "Breakout room · Product & Tools tracks", detail: "One of three parallel breakout rooms, hosting Product Track sessions and Tools, Process & Development sessions including OneCRM Fundamentals." },
+    { icon: Users, title: "Tophane", sub: "Breakout room · Tools & Stage 7 for Directors", detail: "One of three parallel breakout rooms, hosting OneCRM and forecasting sessions, plus the Stage 7 for Sales Directors track." },
+    { icon: Coffee, title: "Hotel Conference Area", sub: "RIB EXPO, Day 1", detail: "Home to the RIB EXPO Connect & Explore Experience — Product Showcase Hall, OneCRM Support Hub, AI Discovery Hub, Executive Office Hours, Revenue Growth Exchange, Professional Headshot Studio, and Community Hub." },
+    { icon: Ship, title: "Bosphorus Terrace", sub: "Revenue Awards, Celebration & Happy Hour, Day 1", detail: "Rooftop terrace with Bosphorus views — the setting for Day 1's evening celebration after the opening sessions close." },
+    { icon: PartyPopper, title: "Hotel Lobby", sub: "Registration & check-in, Day 1", detail: "Registration and hotel check-in for arriving delegates." },
   ];
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -772,9 +775,9 @@ function VenueView() {
         <div className="relative overflow-hidden mx-4 mt-4 rounded-2xl" style={{ background: C.navy, height: 150 }}>
           <WorldArcBg />
           <div className="relative h-full flex flex-col justify-end p-4">
-            <p style={{ color: C.white }} className="font-bold text-[15px]">Istanbul Congress Center</p>
-            <p style={{ color: "#B9C4D6" }} className="text-[12px]">Darülbedayi Cd., Harbiye, Şişli, Istanbul</p>
-            <a href="https://www.google.com/maps/search/?api=1&query=Istanbul+Congress+Center" target="_blank" rel="noopener noreferrer" style={{ background: C.blue }} className="mt-2.5 self-start text-white text-[11.5px] font-semibold rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+            <p style={{ color: C.white }} className="font-bold text-[15px]">CVK Park Bosphorus Hotel Istanbul</p>
+            <p style={{ color: "#B9C4D6" }} className="text-[12px]">Gümüşsuyu Mah. İnönü Cad. No:8, 34437 Istanbul, Türkiye</p>
+            <a href="https://www.google.com/maps/search/?api=1&query=CVK+Park+Bosphorus+Hotel+Istanbul" target="_blank" rel="noopener noreferrer" style={{ background: C.blue }} className="mt-2.5 self-start text-white text-[11.5px] font-semibold rounded-lg px-3 py-1.5 flex items-center gap-1.5">
               <Navigation size={12} /> Open in Maps
             </a>
           </div>
