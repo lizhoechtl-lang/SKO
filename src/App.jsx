@@ -243,7 +243,7 @@ function LoginScreen() {
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ background: C.navy }}>
+    <div className="h-full flex flex-col" style={{ background: C.navy, paddingTop: "env(safe-area-inset-top)" }}>
       <div className="relative overflow-hidden px-7 pt-14 pb-10 flex-shrink-0">
         <WorldArcBg />
         <div className="relative">
@@ -306,7 +306,7 @@ function CompleteProfileScreen({ email, onDone }) {
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ background: C.navy }}>
+    <div className="h-full flex flex-col" style={{ background: C.navy, paddingTop: "env(safe-area-inset-top)" }}>
       <div className="relative overflow-hidden px-7 pt-14 pb-10 flex-shrink-0">
         <WorldArcBg />
         <div className="relative">
@@ -333,7 +333,7 @@ function CompleteProfileScreen({ email, onDone }) {
 /* ---------------------------------------------------------------------- */
 function AppBar({ title, onBack, right }) {
   return (
-    <div style={{ borderColor: C.cloud }} className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0 bg-white">
+    <div style={{ borderColor: C.cloud, paddingTop: "calc(env(safe-area-inset-top) + 16px)" }} className="flex items-center justify-between px-5 pb-4 border-b flex-shrink-0 bg-white">
       <div className="flex items-center gap-2 min-w-0">
         {onBack && <button onClick={onBack} className="mr-1 flex-shrink-0"><ChevronLeft size={20} color={C.navy} /></button>}
         <h2 style={{ color: C.navy }} className="font-bold text-[17px] truncate">{title}</h2>
@@ -349,7 +349,7 @@ function BottomNav({ view, setView }) {
     { id: "more", icon: MoreHorizontal, label: "More" },
   ];
   return (
-    <div style={{ borderColor: C.cloud }} className="flex-shrink-0 border-t bg-white flex items-stretch">
+    <div style={{ borderColor: C.cloud, paddingBottom: "env(safe-area-inset-bottom)" }} className="flex-shrink-0 border-t bg-white flex items-stretch">
       {items.map((it) => {
         const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist","organizers"].includes(view));
         const Icon = it.icon;
@@ -378,7 +378,7 @@ function HomeView({ user, announcements, setView, openSession, itinerary }) {
   const latest = announcements[0];
   return (
     <div className="flex-1 overflow-y-auto" style={{ background: C.bg }}>
-      <div className="relative overflow-hidden px-6 pt-7 pb-8" style={{ background: C.navy }}>
+      <div className="relative overflow-hidden px-6 pb-8" style={{ background: C.navy, paddingTop: "calc(env(safe-area-inset-top) + 28px)" }}>
         <WorldArcBg />
         <div className="relative">
           <p style={{ color: "#B9C4D6" }} className="text-[12px]">Welcome back,</p>
@@ -1118,7 +1118,7 @@ export default function App() {
   const goLiveFor = () => { setSelectedSession(null); setView("live"); };
 
   if (checking) {
-    return <div style={{ background: C.navy }} className="w-full h-svh flex items-center justify-center"><p style={{ color: C.white }} className="text-[13px]">Loading…</p></div>;
+    return <div style={{ background: C.navy, paddingTop: "env(safe-area-inset-top)" }} className="w-full h-svh flex items-center justify-center"><p style={{ color: C.white }} className="text-[13px]">Loading…</p></div>;
   }
 
   return (
