@@ -190,3 +190,44 @@ export async function deleteAnnouncement(id) {
   await deleteDoc(doc(db, "announcements", id));
 }
  
+/* ---------------------------------------------------------------------- */
+/*  ADD THESE TO THE END OF src/api.js                                    */
+/*  Uses collection, doc, addDoc, setDoc, query, orderBy, onSnapshot,     */
+/*  and serverTimestamp — all should already be imported from earlier     */
+/*  work. Double-check the firebase/firestore import line at the top      */
+/*  includes all of these; add any that are missing.                     */
+/* ---------------------------------------------------------------------- */
+
+// Real-time message list for one attendee's thread with the organizers.
+export function subscribeMessages(threadEmail, onChange) {
+  const q = query(collection(db, "conversations", threadEmail, "messages"), orderBy("createdAt", "asc"));
+  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+}
+
+// Sends a message into that thread and updates the thread's preview
+// (last message, timestamp, and the attendee's display name once known).
+export async function sendMessage(threadEmail, { senderEmail, senderName, text }) {
+  await addDoc(collection(db, "conversations", threadEmail, "messages"), {
+    senderEmail, senderName, text, createdAt: serverTimestamp(),
+  });
+  const update = {
+    attendeeEmail: threadEmail,
+    lastMessage: text,
+    lastMessageAt: serverTimestamp(),
+  };
+  if (senderEmail === threadEmail) update.attendeeName = senderName;
+  await setDoc(doc(db, "conversations", threadEmail), update, { merge: true });
+}
+
+// Real-time list of every attendee's conversation, for the organizer inbox.
+export function subscribeConversations(onChange) {
+  const q = query(collection(db, "conversations"), orderBy("lastMessageAt", "desc"));
+  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      ...data,
+      lastMessageAt: data.lastMessageAt?.toDate ? data.lastMessageAt.toDate().getTime() : null,
+    };
+  })));
+}

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Home, CalendarDays, Users, Radio, MoreHorizontal, MapPin, Clock, Heart,
   ChevronRight, ChevronLeft, Search, Bell, LogOut, Send, ThumbsUp,
   BarChart3, Plus, Check, Mic2, Coffee, Ship, PartyPopper, Mail,
-  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock, Trash2
+  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock, Trash2, MessageCircle
 } from "lucide-react";
 import { signInWithPassword, getCurrentUser, onAuthChange, signOut } from "./firebaseClient";
 import * as api from "./api";
@@ -351,7 +351,7 @@ function BottomNav({ view, setView }) {
   return (
     <div style={{ borderColor: C.cloud, paddingBottom: "env(safe-area-inset-bottom)" }} className="flex-shrink-0 border-t bg-white flex items-stretch">
       {items.map((it) => {
-        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist","organizers"].includes(view));
+        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist","organizers","messages","inbox"].includes(view));
         const Icon = it.icon;
         return (
           <button key={it.id} onClick={() => setView(it.id)} className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
@@ -893,9 +893,11 @@ function MoreView({ setView, user, onLogout }) {
   const items = [
     { id: "speakers", label: "Speakers", icon: Mic2 }, { id: "network", label: "Network", icon: Users },
     { id: "venue", label: "Venue & Map", icon: MapPin }, { id: "announcements", label: "Announcements", icon: Bell },
+    { id: "messages", label: "Message Organizers", icon: MessageCircle },
     ...(user.isOrganizer ? [
       { id: "allowlist", label: "Manage Allowlist", icon: Shield },
       { id: "organizers", label: "Manage Organizers", icon: Star },
+      { id: "inbox", label: "Messages Inbox", icon: MessageCircle },
     ] : []),
   ];
   return (
@@ -921,6 +923,123 @@ function MoreView({ setView, user, onLogout }) {
         )}
 
         <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 py-3.5 mt-6"><LogOut size={15} color="#C0342C" /><span style={{ color: "#C0342C" }} className="font-semibold text-[13.5px]">Sign out</span></button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/*  DIRECT MESSAGES — attendee <-> organizers                             */
+/* ---------------------------------------------------------------------- */
+function MessageThread({ user, threadEmail, threadTitle, onBack, overlay }) {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    setLoading(true);
+    const unsub = api.subscribeMessages(threadEmail, (msgs) => { setMessages(msgs); setLoading(false); });
+    return unsub;
+  }, [threadEmail]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const send = async () => {
+    if (!text.trim()) return;
+    setSending(true);
+    try {
+      await api.sendMessage(threadEmail, { senderEmail: user.email, senderName: user.name, text: text.trim() });
+      setText("");
+    } catch {}
+    setSending(false);
+  };
+
+  return (
+    <div className={overlay ? "absolute inset-0 bg-white flex flex-col z-40" : "flex-1 flex flex-col min-h-0"}>
+      <AppBar title={threadTitle} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5" style={{ background: C.bg }}>
+        {loading && <p style={{ color: C.slate }} className="text-[13px] text-center pt-8">Loading…</p>}
+        {!loading && messages.length === 0 && (
+          <p style={{ color: C.slate }} className="text-[13px] text-center pt-8">No messages yet — say hello.</p>
+        )}
+        {messages.map((m) => {
+          const mine = m.senderEmail === user.email;
+          return (
+            <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div style={{ background: mine ? C.blue : C.white, borderColor: C.cloud }} className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${mine ? "" : "border"}`}>
+                {!mine && <p style={{ color: C.blue }} className="text-[10.5px] font-bold mb-0.5">{m.senderName}</p>}
+                <p style={{ color: mine ? C.white : C.navy }} className="text-[13px] leading-relaxed">{m.text}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+      <div style={{ borderColor: C.cloud }} className="border-t px-4 py-3 flex gap-2 flex-shrink-0 bg-white">
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type a message…"
+          style={{ borderColor: C.cloud }} className="flex-1 border rounded-xl px-3.5 py-2.5 text-[13px] outline-none" onKeyDown={(e) => e.key === "Enter" && send()} />
+        <button onClick={send} disabled={sending} style={{ background: C.blue }} className="rounded-xl px-3.5 flex items-center justify-center flex-shrink-0 disabled:opacity-60">
+          <Send size={16} color={C.white} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OrganizerInboxView({ user, onOpenThread }) {
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = api.subscribeConversations((convos) => { setConversations(convos); setLoading(false); });
+    return unsub;
+  }, []);
+
+  const timeAgo = (ts) => {
+    if (!ts) return "";
+    const mins = Math.round((Date.now() - ts) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.round(hrs / 24)}d ago`;
+  };
+
+  if (!user.isOrganizer) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <AppBar title="Messages Inbox" />
+        <div className="flex-1 flex items-center justify-center px-6">
+          <p style={{ color: C.slate }} className="text-[13px] text-center">Organizer access only.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      <AppBar title="Messages Inbox" />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: C.bg }}>
+        {loading && <p style={{ color: C.slate }} className="text-[13px] text-center pt-8">Loading…</p>}
+        {!loading && conversations.length === 0 && <p style={{ color: C.slate }} className="text-[13px] text-center pt-8">No messages yet.</p>}
+        {conversations.map((c) => {
+          const label = c.attendeeName || c.attendeeEmail || c.id;
+          const initials = label.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+          return (
+            <button key={c.id} onClick={() => onOpenThread(c.id, label)} style={{ borderColor: C.cloud }} className="w-full bg-white border rounded-2xl p-3.5 flex items-center gap-3 text-left">
+              <Avatar initials={initials} color={C.slate} size={40} />
+              <div className="min-w-0 flex-1">
+                <p style={{ color: C.navy }} className="font-semibold text-[13.5px] truncate">{label}</p>
+                <p style={{ color: C.slate }} className="text-[12px] truncate">{c.lastMessage}</p>
+              </div>
+              <p style={{ color: C.slate }} className="text-[10.5px] flex-shrink-0">{timeAgo(c.lastMessageAt)}</p>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1075,6 +1194,7 @@ export default function App() {
   const [announcements, setAnnouncements] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedSpeaker, setSelectedSpeaker] = useState(null);
+  const [selectedThread, setSelectedThread] = useState(null);
 
   const loadProfile = useCallback(async (email) => {
     const profile = await api.getAttendee(email);
@@ -1145,9 +1265,12 @@ export default function App() {
             {view === "announcements" && <AnnouncementsView user={user} announcements={announcements} refresh={loadAnnouncements} />}
             {view === "allowlist" && <AllowlistView user={user} />}
             {view === "organizers" && <ManageOrganizersView user={user} onSelfChange={(v) => setUser({ ...user, isOrganizer: v })} />}
+            {view === "messages" && <MessageThread user={user} threadEmail={user.email} threadTitle="Message Organizers" />}
+            {view === "inbox" && <OrganizerInboxView user={user} onOpenThread={(email, name) => setSelectedThread({ email, name })} />}
             <BottomNav view={view} setView={setView} />
             {selectedSession && <SessionDetail session={selectedSession} itinerary={itinerary} toggleSave={toggleSave} onClose={() => setSelectedSession(null)} onOpenSpeaker={openSpeaker} goLive={goLiveFor} />}
             {selectedSpeaker && <SpeakerDetail sp={selectedSpeaker} onClose={() => setSelectedSpeaker(null)} onOpenSession={(s) => { setSelectedSpeaker(null); setSelectedSession(s); }} />}
+            {selectedThread && <MessageThread user={user} threadEmail={selectedThread.email} threadTitle={selectedThread.name} onBack={() => setSelectedThread(null)} overlay />}
           </>
         )}
       </div>
