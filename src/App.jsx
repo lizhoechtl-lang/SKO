@@ -35,17 +35,17 @@ const SPEAKERS = [
     bio: "" },
   { id: "mads", name: "Mads Bording", title: "Chief Marketing / Strategy Officer", company: "RIB", initials: "MB", color: "#0064B1",
     bio: "" },
-  { id: "liz", name: "Liz Hoechtl", title: "Chief of Staff / Global HRBP Commercial", company: "RIB", initials: "LH", color: "#0A8F5B",
+  { id: "liz", name: "Liz Hoechtl", title: "Chief of Staff / Global HRBP Commercial", company: "RIB", initials: "LH", color: "#0064B1",
     bio: "" },
   { id: "matt", name: "Matt Sandidge", title: "VP Sales Excellence & Operations", company: "RIB", initials: "MS", color: "#7C3AED",
     bio: "" },
   { id: "rolf", name: "Rolf Helmes", title: "Chief Product Officer", company: "RIB", initials: "RH", color: "#0064B1",
     bio: "" },
-  { id: "kim", name: "Kim Immelman", title: "VP Global Marketing", company: "RIB", initials: "KI", color: "#0A8F5B",
+  { id: "kim", name: "Kim Immelman", title: "VP Global Marketing", company: "RIB", initials: "KI", color: "#7C3AED",
     bio: "" },
-  { id: "jareb", name: "Jareb Courtney", title: "Chief Human Resource Officer", company: "RIB", initials: "JC", color: "#6B7280",
+  { id: "jareb", name: "Jareb Courtney", title: "Chief Human Resource Officer", company: "RIB", initials: "JC", color: "#0064B1",
     bio: "" },
-  { id: "evgeny", name: "Evgeny Fedotov", title: "CCO", company: "RIB", initials: "EF", color: "#C2790C",
+  { id: "evgeny", name: "Evgeny Fedotov", title: "Chief Commercial Officer", company: "RIB", initials: "EF", color: "#0064B1",
     bio: "" },
 ];
 const speaker = (id) => SPEAKERS.find((s) => s.id === id);
@@ -57,7 +57,7 @@ const SESSIONS = [
     desc: "" },
   { id: "d1s03", day: 1, date: "2027-01-25", start: "14:00", end: "15:00", track: "Networking & Community", title: "Refresh & Reconnect", room: "Individual Rooms", speakers: [],
     desc: "" },
-  { id: "d1s04", day: 1, date: "2027-01-25", start: "15:00", end: "15:20", track: "Strategy & Leadership", title: "Welcome to Revenue Kickoff 2027", room: "Istanbul", speakers: ["liz", "matt"],
+  { id: "d1s04", day: 1, date: "2027-01-25", start: "15:00", end: "15:20", track: "Strategy & Leadership", title: "Welcome to Global Revenue Summit 2027", room: "Istanbul", speakers: ["liz", "matt"],
     desc: "" },
   { id: "d1s05", day: 1, date: "2027-01-25", start: "15:20", end: "15:50", track: "Strategy & Leadership", title: "CEO: 2026 Company Performance", room: "Istanbul", speakers: ["rene"],
     desc: "" },
@@ -447,7 +447,7 @@ function SessionCard({ s, saved, onToggleSave, onOpen }) {
         <p style={{ color: C.navy }} className="font-bold text-[14px] leading-snug">{s.title}</p>
         <div style={{ color: C.slate }} className="flex items-center gap-3 text-[11.5px] mt-1.5 flex-wrap">
           <span className="flex items-center gap-1"><MapPin size={11} />{s.room}</span>
-          {s.speakers.length > 0 && <span className="truncate">{s.speakers.map((id) => speaker(id).name.split(" ")[0]).join(", ")}</span>}
+          {s.speakers.length > 0 && <span className="truncate">{s.speakers.map((id) => speaker(id).name).join(", ")}</span>}
         </div>
       </div>
     </button>
