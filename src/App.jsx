@@ -95,7 +95,7 @@ const DAY_LABELS = {
 const TRACKS = ["All", "Keynote", "Sales Excellence", "Customer Success", "RevOps & Analytics", "Social"];
 
 /* ---------------------------------------------------------------------- */
-/*  SMALL UI PRIMITIVES (unchanged from the prototype)                    */
+/*  SMALL UI PRIMITIVES                                                    */
 /* ---------------------------------------------------------------------- */
 function Eyebrow({ children, color = C.slate, style }) {
   return (
@@ -125,7 +125,7 @@ function WorldArcBg() {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  AUTH SCREENS — magic link                                             */
+/*  AUTH SCREENS — magic link + allowlist gate                            */
 /* ---------------------------------------------------------------------- */
 function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -134,23 +134,24 @@ function LoginScreen() {
   const [error, setError] = useState("");
 
   const submit = async () => {
-  if (!email.trim() || !email.includes("@")) { setError("Enter a valid email to continue."); return; }
-  setBusy(true); setError("");
-  try {
-    const clean = email.trim().toLowerCase();
-    const allowed = await api.isEmailAllowed(clean);
-    if (!allowed) {
-      setError("This email isn't registered for the Summit. Contact the organizers if you think this is a mistake.");
-      setBusy(false);
-      return;
+    if (!email.trim() || !email.includes("@")) { setError("Enter a valid email to continue."); return; }
+    setBusy(true); setError("");
+    try {
+      const clean = email.trim().toLowerCase();
+      const allowed = await api.isEmailAllowed(clean);
+      if (!allowed) {
+        setError("This email isn't registered for the Summit. Contact the organizers if you think this is a mistake.");
+        setBusy(false);
+        return;
+      }
+      await sendMagicLink(clean);
+      setSent(true);
+    } catch (e) {
+      setError("Couldn't send the link — try again in a moment.");
     }
-    await sendMagicLink(clean);
-    setSent(true);
-  } catch (e) {
-    setError("Couldn't send the link — try again in a moment.");
-  }
-  setBusy(false);
-};
+    setBusy(false);
+  };
+
   return (
     <div className="h-full flex flex-col" style={{ background: C.navy }}>
       <div className="relative overflow-hidden px-7 pt-14 pb-10 flex-shrink-0">
@@ -257,7 +258,7 @@ function BottomNav({ view, setView }) {
   return (
     <div style={{ borderColor: C.cloud }} className="flex-shrink-0 border-t bg-white flex items-stretch">
       {items.map((it) => {
-        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist"].includes(view));
+        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist","organizers"].includes(view));
         const Icon = it.icon;
         return (
           <button key={it.id} onClick={() => setView(it.id)} className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
@@ -338,7 +339,7 @@ function HomeView({ user, announcements, setView, openSession, itinerary }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  AGENDA + SESSION/SPEAKER DETAIL + ITINERARY (unchanged logic)          */
+/*  AGENDA + SESSION/SPEAKER DETAIL + ITINERARY                            */
 /* ---------------------------------------------------------------------- */
 function SessionCard({ s, saved, onToggleSave, onOpen }) {
   return (
@@ -484,7 +485,7 @@ function ItineraryView({ itinerary, toggleSave, openSession }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  LIVE: POLLS & Q&A — now backed by Postgres + realtime                 */
+/*  LIVE: POLLS & Q&A                                                       */
 /* ---------------------------------------------------------------------- */
 function LiveView({ user }) {
   const [sessionId, setSessionId] = useState("s1");
@@ -504,7 +505,6 @@ function LiveView({ user }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Live updates: reload silently when someone else votes, asks, or upvotes
   useEffect(() => {
     const unsubVotes = api.subscribePollVotes(sessionId, load);
     const unsubQa = api.subscribeQuestions(sessionId, load);
@@ -584,7 +584,7 @@ function LiveView({ user }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  SPEAKERS DIRECTORY (unchanged — static content)                       */
+/*  SPEAKERS DIRECTORY                                                      */
 /* ---------------------------------------------------------------------- */
 function SpeakersView({ onOpenSpeaker }) {
   const [q, setQ] = useState("");
@@ -609,7 +609,7 @@ function SpeakersView({ onOpenSpeaker }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  NETWORK — real attendee directory from the database                   */
+/*  NETWORK                                                                 */
 /* ---------------------------------------------------------------------- */
 function NetworkView({ user }) {
   const [attendees, setAttendees] = useState([]);
@@ -663,7 +663,7 @@ function NetworkView({ user }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  VENUE & MAP (unchanged — static content)                              */
+/*  VENUE & MAP                                                             */
 /* ---------------------------------------------------------------------- */
 function VenueView() {
   const spots = [
@@ -703,7 +703,7 @@ function VenueView() {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  ANNOUNCEMENTS — real-time feed from Postgres                          */
+/*  ANNOUNCEMENTS                                                           */
 /* ---------------------------------------------------------------------- */
 function AnnouncementsView({ user, announcements, refresh }) {
   const [text, setText] = useState("");
@@ -758,12 +758,15 @@ function AnnouncementsView({ user, announcements, refresh }) {
 /* ---------------------------------------------------------------------- */
 /*  MORE / PROFILE                                                          */
 /* ---------------------------------------------------------------------- */
-function MoreView({ setView, user, onLogout, onToggleOrganizer }) {
+function MoreView({ setView, user, onLogout }) {
   const items = [
-  { id: "speakers", label: "Speakers", icon: Mic2 }, { id: "network", label: "Network", icon: Users },
-  { id: "venue", label: "Venue & Map", icon: MapPin }, { id: "announcements", label: "Announcements", icon: Bell },
-  ...(user.isOrganizer ? [{ id: "allowlist", label: "Manage Allowlist", icon: Shield }] : []),
-];
+    { id: "speakers", label: "Speakers", icon: Mic2 }, { id: "network", label: "Network", icon: Users },
+    { id: "venue", label: "Venue & Map", icon: MapPin }, { id: "announcements", label: "Announcements", icon: Bell },
+    ...(user.isOrganizer ? [
+      { id: "allowlist", label: "Manage Allowlist", icon: Shield },
+      { id: "organizers", label: "Manage Organizers", icon: Star },
+    ] : []),
+  ];
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <AppBar title="More" />
@@ -778,17 +781,23 @@ function MoreView({ setView, user, onLogout, onToggleOrganizer }) {
             return <button key={it.id} onClick={() => setView(it.id)} style={{ borderColor: C.cloud }} className="w-full bg-white border rounded-2xl p-3.5 flex items-center gap-3 text-left"><Icon size={17} color={C.blue} /><span style={{ color: C.navy }} className="font-semibold text-[13.5px]">{it.label}</span><ChevronRight size={16} color={C.slate} className="ml-auto" /></button>;
           })}
         </div>
-        <button onClick={onToggleOrganizer} style={{ borderColor: C.cloud }} className="w-full bg-white border rounded-2xl p-3.5 flex items-center gap-3 text-left mt-4">
-          <Star size={17} color={user.isOrganizer ? C.amber : C.slate} fill={user.isOrganizer ? C.amber : "none"} />
-          <span style={{ color: C.navy }} className="font-semibold text-[13.5px]">{user.isOrganizer ? "Organizer mode: on" : "Enable organizer mode"}</span>
-        </button>
-        <p style={{ color: C.slate }} className="text-[11px] px-1 mt-1.5">Toggle who can post announcements. In production, grant this in the database instead of leaving it self-serve.</p>
+
+        {user.isOrganizer && (
+          <div style={{ borderColor: C.cloud }} className="w-full bg-white border rounded-2xl p-3.5 flex items-center gap-3 mt-4">
+            <Star size={17} color={C.amber} fill={C.amber} />
+            <span style={{ color: C.navy }} className="font-semibold text-[13.5px]">Organizer</span>
+          </div>
+        )}
+
         <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 py-3.5 mt-6"><LogOut size={15} color="#C0342C" /><span style={{ color: "#C0342C" }} className="font-semibold text-[13.5px]">Sign out</span></button>
       </div>
     </div>
   );
 }
 
+/* ---------------------------------------------------------------------- */
+/*  ALLOWLIST ADMIN — who can request a sign-in link                      */
+/* ---------------------------------------------------------------------- */
 function AllowlistView({ user }) {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -863,11 +872,72 @@ function AllowlistView({ user }) {
 }
 
 /* ---------------------------------------------------------------------- */
+/*  ORGANIZER ADMIN — who can act as an organizer                         */
+/* ---------------------------------------------------------------------- */
+function ManageOrganizersView({ user, onSelfChange }) {
+  const [attendees, setAttendees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setAttendees(await api.getAllAttendees());
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const toggle = async (email, current) => {
+    await api.setOrganizer(email, !current);
+    if (email === user.email) onSelfChange(!current);
+    await load();
+  };
+
+  if (!user.isOrganizer) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <AppBar title="Manage Organizers" />
+        <div className="flex-1 flex items-center justify-center px-6">
+          <p style={{ color: C.slate }} className="text-[13px] text-center">Organizer access only.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const list = attendees.filter((a) => a.name.toLowerCase().includes(q.toLowerCase()) || a.email.toLowerCase().includes(q.toLowerCase()));
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      <AppBar title="Manage Organizers" />
+      <div style={{ borderColor: C.cloud }} className="px-4 py-3 border-b flex-shrink-0 flex items-center gap-2">
+        <Search size={15} color={C.slate} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search delegates…" className="flex-1 text-[13px] outline-none" />
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: C.bg }}>
+        {loading && <p style={{ color: C.slate }} className="text-[13px] text-center pt-8">Loading…</p>}
+        {!loading && list.map((a) => (
+          <div key={a.email} style={{ borderColor: C.cloud }} className="bg-white border rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+            <div className="min-w-0">
+              <p style={{ color: C.navy }} className="text-[13px] font-medium truncate">{a.name}</p>
+              <p style={{ color: C.slate }} className="text-[11px] truncate">{a.email}</p>
+            </div>
+            <button onClick={() => toggle(a.email, a.isOrganizer)}
+              style={{ background: a.isOrganizer ? C.amber : C.bg, color: a.isOrganizer ? C.white : C.slate, borderColor: a.isOrganizer ? C.amber : C.cloud }}
+              className="border rounded-lg px-3 py-1.5 text-[11.5px] font-semibold flex-shrink-0">
+              {a.isOrganizer ? "Organizer" : "Make organizer"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
 /*  ROOT APP                                                                */
 /* ---------------------------------------------------------------------- */
 export default function App() {
   const [authUser, setAuthUser] = useState(null);
-  const [user, setUser] = useState(null); // attendee profile, mapped to the shape the UI expects
+  const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [view, setView] = useState("home");
   const [itinerary, setItinerary] = useState([]);
@@ -877,23 +947,22 @@ export default function App() {
 
   const loadProfile = useCallback(async (email) => {
     const profile = await api.getAttendee(email);
-    setUser(profile ? { ...profile, isOrganizer: profile.is_organizer } : null);
+    setUser(profile ? { ...profile, isOrganizer: profile.is_organizer ?? profile.isOrganizer } : null);
   }, []);
 
-  // restore auth session on load, and react to sign-in via the magic link
   useEffect(() => {
-  (async () => {
-    const u = await getCurrentUser();
-    setAuthUser(u);
-    if (u?.email) await loadProfile(u.email);
-    setChecking(false);
-  })();
-  const sub = onAuthChange(async (u) => {
-    setAuthUser(u);
-    if (u?.email) await loadProfile(u.email); else setUser(null);
-  });
-  return () => sub();
-}, [loadProfile]);
+    (async () => {
+      const u = await getCurrentUser();
+      setAuthUser(u);
+      if (u?.email) await loadProfile(u.email);
+      setChecking(false);
+    })();
+    const sub = onAuthChange(async (u) => {
+      setAuthUser(u);
+      if (u?.email) await loadProfile(u.email); else setUser(null);
+    });
+    return () => sub();
+  }, [loadProfile]);
 
   const loadItinerary = useCallback(async (email) => setItinerary(await api.getItinerary(email)), []);
   const loadAnnouncements = useCallback(async () => {
@@ -910,12 +979,6 @@ export default function App() {
   }, [user, loadItinerary, loadAnnouncements]);
 
   const handleLogout = async () => { await signOut(); setUser(null); setAuthUser(null); setView("home"); };
-
-  const toggleOrganizer = async () => {
-    const next = !user.isOrganizer;
-    setUser({ ...user, isOrganizer: next });
-    await api.setOrganizer(user.email, next);
-  };
 
   const toggleSave = async (sessionId) => {
     const isSaved = itinerary.includes(sessionId);
@@ -937,19 +1000,20 @@ export default function App() {
         {!authUser ? (
           <LoginScreen />
         ) : !user ? (
-          <CompleteProfileScreen email={authUser.email} onDone={(profile) => setUser({ ...profile, isOrganizer: profile.is_organizer })} />
+          <CompleteProfileScreen email={authUser.email} onDone={(profile) => setUser({ ...profile, isOrganizer: profile.is_organizer ?? profile.isOrganizer })} />
         ) : (
           <>
             {view === "home" && <HomeView user={user} announcements={announcements} setView={setView} openSession={openSession} itinerary={itinerary} />}
             {view === "agenda" && <AgendaView itinerary={itinerary} toggleSave={toggleSave} openSession={openSession} />}
             {view === "itinerary" && <ItineraryView itinerary={itinerary} toggleSave={toggleSave} openSession={openSession} />}
             {view === "live" && <LiveView user={user} />}
-            {view === "more" && <MoreView setView={setView} user={user} onLogout={handleLogout} onToggleOrganizer={toggleOrganizer} />}
+            {view === "more" && <MoreView setView={setView} user={user} onLogout={handleLogout} />}
             {view === "speakers" && <SpeakersView onOpenSpeaker={openSpeaker} />}
             {view === "network" && <NetworkView user={user} />}
             {view === "venue" && <VenueView />}
             {view === "announcements" && <AnnouncementsView user={user} announcements={announcements} refresh={loadAnnouncements} />}
-	    {view === "allowlist" && <AllowlistView user={user} />}
+            {view === "allowlist" && <AllowlistView user={user} />}
+            {view === "organizers" && <ManageOrganizersView user={user} onSelfChange={(v) => setUser({ ...user, isOrganizer: v })} />}
             <BottomNav view={view} setView={setView} />
             {selectedSession && <SessionDetail session={selectedSession} itinerary={itinerary} toggleSave={toggleSave} onClose={() => setSelectedSession(null)} onOpenSpeaker={openSpeaker} goLive={goLiveFor} />}
             {selectedSpeaker && <SpeakerDetail sp={selectedSpeaker} onClose={() => setSelectedSpeaker(null)} onOpenSession={(s) => { setSelectedSpeaker(null); setSelectedSession(s); }} />}
