@@ -1084,12 +1084,12 @@ export default function App() {
   const goLiveFor = () => { setSelectedSession(null); setView("live"); };
 
   if (checking) {
-    return <div style={{ background: C.navy }} className="w-full h-dvh flex items-center justify-center"><p style={{ color: C.white }} className="text-[13px]">Loading…</p></div>;
+    return <div style={{ background: C.navy }} className="w-full h-svh flex items-center justify-center"><p style={{ color: C.white }} className="text-[13px]">Loading…</p></div>;
   }
 
   return (
-    <div className="w-full min-h-dvh flex items-center justify-center bg-white sm:bg-[#DDE1E7]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-      <div className="relative w-full h-dvh sm:h-[90vh] sm:max-w-[420px] sm:max-h-[880px] flex flex-col overflow-hidden bg-white sm:rounded-[28px] sm:shadow-2xl">
+    <div className="w-full min-h-svh flex items-center justify-center bg-white sm:bg-[#DDE1E7]" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+      <div className="relative w-full h-svh sm:h-[90vh] sm:max-w-[420px] sm:max-h-[880px] flex flex-col overflow-hidden bg-white sm:rounded-[28px] sm:shadow-2xl">
         {!authUser ? (
           <LoginScreen />
         ) : !user ? (
