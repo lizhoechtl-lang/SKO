@@ -3,7 +3,7 @@ import {
   Home, CalendarDays, Users, Radio, MoreHorizontal, MapPin, Clock, Heart,
   ChevronRight, ChevronLeft, Search, Bell, LogOut, Send, ThumbsUp,
   BarChart3, Plus, Check, Mic2, Coffee, Ship, PartyPopper, Mail,
-  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, MailCheck
+  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, MailCheck, Shield
 } from "lucide-react";
 import { sendMagicLink, getCurrentUser, onAuthChange, signOut } from "./firebaseClient";
 import * as api from "./api";
@@ -134,17 +134,23 @@ function LoginScreen() {
   const [error, setError] = useState("");
 
   const submit = async () => {
-    if (!email.trim() || !email.includes("@")) { setError("Enter a valid email to continue."); return; }
-    setBusy(true); setError("");
-    try {
-      await sendMagicLink(email.trim().toLowerCase());
-      setSent(true);
-    } catch (e) {
-      setError("Couldn't send the link — try again in a moment.");
+  if (!email.trim() || !email.includes("@")) { setError("Enter a valid email to continue."); return; }
+  setBusy(true); setError("");
+  try {
+    const clean = email.trim().toLowerCase();
+    const allowed = await api.isEmailAllowed(clean);
+    if (!allowed) {
+      setError("This email isn't registered for the Summit. Contact the organizers if you think this is a mistake.");
+      setBusy(false);
+      return;
     }
-    setBusy(false);
-  };
-
+    await sendMagicLink(clean);
+    setSent(true);
+  } catch (e) {
+    setError("Couldn't send the link — try again in a moment.");
+  }
+  setBusy(false);
+};
   return (
     <div className="h-full flex flex-col" style={{ background: C.navy }}>
       <div className="relative overflow-hidden px-7 pt-14 pb-10 flex-shrink-0">
@@ -251,7 +257,7 @@ function BottomNav({ view, setView }) {
   return (
     <div style={{ borderColor: C.cloud }} className="flex-shrink-0 border-t bg-white flex items-stretch">
       {items.map((it) => {
-        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile"].includes(view));
+        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist"].includes(view));
         const Icon = it.icon;
         return (
           <button key={it.id} onClick={() => setView(it.id)} className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
@@ -754,9 +760,10 @@ function AnnouncementsView({ user, announcements, refresh }) {
 /* ---------------------------------------------------------------------- */
 function MoreView({ setView, user, onLogout, onToggleOrganizer }) {
   const items = [
-    { id: "speakers", label: "Speakers", icon: Mic2 }, { id: "network", label: "Network", icon: Users },
-    { id: "venue", label: "Venue & Map", icon: MapPin }, { id: "announcements", label: "Announcements", icon: Bell },
-  ];
+  { id: "speakers", label: "Speakers", icon: Mic2 }, { id: "network", label: "Network", icon: Users },
+  { id: "venue", label: "Venue & Map", icon: MapPin }, { id: "announcements", label: "Announcements", icon: Bell },
+  ...(user.isOrganizer ? [{ id: "allowlist", label: "Manage Allowlist", icon: Shield }] : []),
+];
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <AppBar title="More" />
@@ -777,6 +784,79 @@ function MoreView({ setView, user, onLogout, onToggleOrganizer }) {
         </button>
         <p style={{ color: C.slate }} className="text-[11px] px-1 mt-1.5">Toggle who can post announcements. In production, grant this in the database instead of leaving it self-serve.</p>
         <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 py-3.5 mt-6"><LogOut size={15} color="#C0342C" /><span style={{ color: "#C0342C" }} className="font-semibold text-[13.5px]">Sign out</span></button>
+      </div>
+    </div>
+  );
+}
+
+function AllowlistView({ user }) {
+  const [emails, setEmails] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [input, setInput] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setEmails(await api.getAllowedEmails());
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const addEmails = async () => {
+    const list = input.split(/[\n,]+/).map((e) => e.trim().toLowerCase()).filter((e) => e.includes("@"));
+    if (list.length === 0) return;
+    setAdding(true);
+    await api.addAllowedEmails(list);
+    setInput("");
+    setMsg(`Added ${list.length} email${list.length !== 1 ? "s" : ""}.`);
+    await load();
+    setAdding(false);
+  };
+
+  const remove = async (email) => {
+    await api.removeAllowedEmail(email);
+    setEmails(emails.filter((e) => e !== email));
+  };
+
+  if (!user.isOrganizer) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <AppBar title="Manage Allowlist" />
+        <div className="flex-1 flex items-center justify-center px-6">
+          <p style={{ color: C.slate }} className="text-[13px] text-center">Organizer access only.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      <AppBar title="Manage Allowlist" />
+      <div className="flex-1 overflow-y-auto px-4 py-4" style={{ background: C.bg }}>
+        <div style={{ borderColor: C.blue }} className="bg-white border-2 rounded-2xl p-3.5 mb-4">
+          <p style={{ color: C.blue }} className="text-[10.5px] font-bold uppercase tracking-wide mb-2">Add approved emails</p>
+          <p style={{ color: C.slate }} className="text-[11.5px] mb-2">Paste one per line, or comma-separated. Only these emails can request a sign-in link.</p>
+          <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={4}
+            placeholder={"jordan@company.com\npriya@company.com"}
+            style={{ borderColor: C.cloud }} className="w-full border rounded-lg px-3 py-2 text-[13px] mb-2 outline-none resize-none" />
+          <button onClick={addEmails} disabled={adding} style={{ background: C.blue }} className="text-white text-[12.5px] font-semibold rounded-lg px-3.5 py-2">
+            {adding ? "Adding…" : "Add to allowlist"}
+          </button>
+          {msg && <p style={{ color: C.green }} className="text-[11.5px] mt-2">{msg}</p>}
+        </div>
+
+        <p style={{ color: C.slate }} className="text-[11px] font-semibold uppercase tracking-wide mb-2 px-1">
+          {loading ? "Loading…" : `${emails.length} approved email${emails.length !== 1 ? "s" : ""}`}
+        </p>
+        <div className="space-y-1.5">
+          {emails.map((e) => (
+            <div key={e} style={{ borderColor: C.cloud }} className="bg-white border rounded-xl px-3.5 py-2.5 flex items-center justify-between">
+              <span style={{ color: C.navy }} className="text-[12.5px]">{e}</span>
+              <button onClick={() => remove(e)} style={{ color: "#C0342C" }} className="text-[11px] font-semibold">Remove</button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -869,6 +949,7 @@ export default function App() {
             {view === "network" && <NetworkView user={user} />}
             {view === "venue" && <VenueView />}
             {view === "announcements" && <AnnouncementsView user={user} announcements={announcements} refresh={loadAnnouncements} />}
+	    {view === "allowlist" && <AllowlistView user={user} />}
             <BottomNav view={view} setView={setView} />
             {selectedSession && <SessionDetail session={selectedSession} itinerary={itinerary} toggleSave={toggleSave} onClose={() => setSelectedSession(null)} onOpenSpeaker={openSpeaker} goLive={goLiveFor} />}
             {selectedSpeaker && <SpeakerDetail sp={selectedSpeaker} onClose={() => setSelectedSpeaker(null)} onOpenSession={(s) => { setSelectedSpeaker(null); setSelectedSession(s); }} />}

@@ -2,7 +2,7 @@
 // Same exported function names/signatures as before, so App.jsx barely changes.
 
 import {
-  doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, getDocs,
   query, where, orderBy, onSnapshot, arrayUnion, arrayRemove, serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebaseClient";
@@ -157,3 +157,26 @@ export function subscribeQuestions(sessionId, onChange) {
   const q = query(collection(db, "qaQuestions"), where("sessionId", "==", sessionId));
   return onSnapshot(q, () => onChange());
 }
+
+/* ---------------- Allowlist (who can request a sign-in link) ---------------- */
+ 
+export async function isEmailAllowed(email) {
+  const snap = await getDoc(doc(db, "allowedAttendees", email));
+  return snap.exists();
+}
+ 
+export async function getAllowedEmails() {
+  const snap = await getDocs(collection(db, "allowedAttendees"));
+  return snap.docs.map((d) => d.id).sort();
+}
+ 
+export async function addAllowedEmails(emails) {
+  for (const email of emails) {
+    await setDoc(doc(db, "allowedAttendees", email), { email, addedAt: serverTimestamp() });
+  }
+}
+ 
+export async function removeAllowedEmail(email) {
+  await deleteDoc(doc(db, "allowedAttendees", email));
+}
+ 
