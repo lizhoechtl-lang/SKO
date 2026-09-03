@@ -381,6 +381,10 @@ function HomeView({ user, announcements, setView, openSession, itinerary }) {
       <div className="relative overflow-hidden px-6 pb-8" style={{ background: C.navy, paddingTop: "calc(env(safe-area-inset-top) + 28px)" }}>
         <WorldArcBg />
         <div className="relative">
+          <div className="flex items-center gap-2 mb-5">
+            <div style={{ width: 20, height: 20, borderRadius: "50%", background: `conic-gradient(${C.blue}, #7EC1F5, ${C.blue})` }} />
+            <span style={{ color: C.white, fontWeight: 700, fontSize: 12, letterSpacing: "0.03em" }}>RIB Global Revenue Summit 2027</span>
+          </div>
           <p style={{ color: "#B9C4D6" }} className="text-[12px]">Welcome back,</p>
           <h1 style={{ color: C.white }} className="text-[22px] font-bold mb-4">{user.name.split(" ")[0]}</h1>
           {d > 0 ? (
