@@ -3,9 +3,9 @@ import {
   Home, CalendarDays, Users, Radio, MoreHorizontal, MapPin, Clock, Heart,
   ChevronRight, ChevronLeft, Search, Bell, LogOut, Send, ThumbsUp,
   BarChart3, Plus, Check, Mic2, Coffee, Ship, PartyPopper, Mail,
-  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, MailCheck, Shield
+  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock
 } from "lucide-react";
-import { sendMagicLink, getCurrentUser, onAuthChange, signOut } from "./firebaseClient";
+import { signInWithPassword, getCurrentUser, onAuthChange, signOut } from "./firebaseClient";
 import * as api from "./api";
 
 /* ---------------------------------------------------------------------- */
@@ -125,29 +125,31 @@ function WorldArcBg() {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  AUTH SCREENS — magic link + allowlist gate                            */
+/*  AUTH SCREEN — email + password (accounts are pre-created, not         */
+/*  self-registered — see bulk_create_attendees.js)                       */
 /* ---------------------------------------------------------------------- */
 function LoginScreen() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
   const submit = async () => {
     if (!email.trim() || !email.includes("@")) { setError("Enter a valid email to continue."); return; }
+    if (!password) { setError("Enter your password to continue."); return; }
     setBusy(true); setError("");
     try {
-      const clean = email.trim().toLowerCase();
-      const allowed = await api.isEmailAllowed(clean);
-      if (!allowed) {
-        setError("This email isn't registered for the Summit. Contact the organizers if you think this is a mistake.");
-        setBusy(false);
-        return;
-      }
-      await sendMagicLink(clean);
-      setSent(true);
+      await signInWithPassword(email.trim().toLowerCase(), password);
     } catch (e) {
-      setError("Couldn't send the link — try again in a moment.");
+      if (e.code === "auth/wrong-password" || e.code === "auth/invalid-credential") {
+        setError("Incorrect email or password.");
+      } else if (e.code === "auth/user-not-found") {
+        setError("This email isn't registered for the Summit. Contact the organizers if you think this is a mistake.");
+      } else if (e.code === "auth/too-many-requests") {
+        setError("Too many attempts — try again in a few minutes.");
+      } else {
+        setError("Couldn't sign in — try again in a moment.");
+      }
     }
     setBusy(false);
   };
@@ -168,32 +170,35 @@ function LoginScreen() {
       </div>
 
       <div className="flex-1 bg-white rounded-t-[28px] px-7 pt-8 pb-8 flex flex-col overflow-y-auto">
-        {sent ? (
-          <div className="pt-6 text-center">
-            <div style={{ background: C.blue + "15" }} className="inline-flex rounded-full p-4 mb-4"><MailCheck size={24} color={C.blue} /></div>
-            <p style={{ color: C.navy }} className="font-semibold text-[15px]">Check your inbox</p>
-            <p style={{ color: C.slate }} className="text-[13px] mt-1.5">We sent a sign-in link to <span style={{ color: C.navy, fontWeight: 600 }}>{email}</span>. Tap it on this device to continue.</p>
-            <button onClick={() => setSent(false)} style={{ color: C.blue }} className="text-[13px] font-semibold mt-5">Use a different email</button>
-          </div>
-        ) : (
-          <>
-            <p style={{ color: C.navy }} className="font-semibold text-[15px] mb-1">Welcome, delegate.</p>
-            <p style={{ color: C.slate }} className="text-[13px] mb-6">Enter your registration email and we'll send you a one-tap sign-in link — no password needed.</p>
-            <label style={{ color: C.slate }} className="text-[11px] font-semibold uppercase tracking-wide mb-1 block">Work email</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jordan@company.com" type="email"
-              style={{ borderColor: C.cloud }} className="w-full border rounded-xl px-3.5 py-2.5 text-[14px] mb-2 outline-none" onKeyDown={(e) => e.key === "Enter" && submit()} />
-            {error && <p style={{ color: "#C0342C" }} className="text-[12px] mt-1">{error}</p>}
-            <button onClick={submit} disabled={busy} style={{ background: C.blue }} className="mt-6 w-full text-white rounded-xl py-3 font-semibold text-[14px] flex items-center justify-center gap-2 disabled:opacity-60">
-              {busy ? "Sending…" : "Send sign-in link"} <ArrowRight size={16} />
-            </button>
-            <p style={{ color: C.slate }} className="text-[11px] text-center mt-4">Jan 18–22, 2027 · Istanbul Congress Center</p>
-          </>
-        )}
+        <p style={{ color: C.navy }} className="font-semibold text-[15px] mb-1">Welcome, delegate.</p>
+        <p style={{ color: C.slate }} className="text-[13px] mb-6">Sign in with your registration email and the Summit password from your confirmation.</p>
+
+        <label style={{ color: C.slate }} className="text-[11px] font-semibold uppercase tracking-wide mb-1 block">Work email</label>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jordan@company.com" type="email"
+          style={{ borderColor: C.cloud }} className="w-full border rounded-xl px-3.5 py-2.5 text-[14px] mb-4 outline-none" onKeyDown={(e) => e.key === "Enter" && submit()} />
+
+        <label style={{ color: C.slate }} className="text-[11px] font-semibold uppercase tracking-wide mb-1 block">Password</label>
+        <div className="relative mb-2">
+          <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Summit password" type="password"
+            style={{ borderColor: C.cloud }} className="w-full border rounded-xl pl-3.5 pr-9 py-2.5 text-[14px] outline-none" onKeyDown={(e) => e.key === "Enter" && submit()} />
+          <Lock size={15} color={C.slate} className="absolute right-3 top-1/2 -translate-y-1/2" />
+        </div>
+
+        {error && <p style={{ color: "#C0342C" }} className="text-[12px] mt-1">{error}</p>}
+
+        <button onClick={submit} disabled={busy} style={{ background: C.blue }} className="mt-6 w-full text-white rounded-xl py-3 font-semibold text-[14px] flex items-center justify-center gap-2 disabled:opacity-60">
+          {busy ? "Signing in…" : "Sign in"} <ArrowRight size={16} />
+        </button>
+        <p style={{ color: C.slate }} className="text-[11px] text-center mt-4">Jan 18–22, 2027 · Istanbul Congress Center</p>
+        <p style={{ color: C.slate }} className="text-[11px] text-center mt-1">Forgot your password? Contact the organizers.</p>
       </div>
     </div>
   );
 }
 
+/* Fallback shown only if someone is signed in but no attendee profile
+   exists yet in Firestore — shouldn't happen for accounts created by the
+   bulk script, but kept as a safety net. */
 function CompleteProfileScreen({ email, onDone }) {
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
@@ -796,7 +801,7 @@ function MoreView({ setView, user, onLogout }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/*  ALLOWLIST ADMIN — who can request a sign-in link                      */
+/*  ALLOWLIST ADMIN — who is a valid registered attendee                  */
 /* ---------------------------------------------------------------------- */
 function AllowlistView({ user }) {
   const [emails, setEmails] = useState([]);
@@ -818,7 +823,7 @@ function AllowlistView({ user }) {
     setAdding(true);
     await api.addAllowedEmails(list);
     setInput("");
-    setMsg(`Added ${list.length} email${list.length !== 1 ? "s" : ""}.`);
+    setMsg(`Added ${list.length} email${list.length !== 1 ? "s" : ""}. Note: this doesn't create their sign-in account — run bulk_create_attendees.js for that.`);
     await load();
     setAdding(false);
   };
@@ -845,7 +850,7 @@ function AllowlistView({ user }) {
       <div className="flex-1 overflow-y-auto px-4 py-4" style={{ background: C.bg }}>
         <div style={{ borderColor: C.blue }} className="bg-white border-2 rounded-2xl p-3.5 mb-4">
           <p style={{ color: C.blue }} className="text-[10.5px] font-bold uppercase tracking-wide mb-2">Add approved emails</p>
-          <p style={{ color: C.slate }} className="text-[11.5px] mb-2">Paste one per line, or comma-separated. Only these emails can request a sign-in link.</p>
+          <p style={{ color: C.slate }} className="text-[11.5px] mb-2">This list is a record of who's registered. To actually create someone's sign-in account and password, use bulk_create_attendees.js — this panel alone won't let them sign in.</p>
           <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={4}
             placeholder={"jordan@company.com\npriya@company.com"}
             style={{ borderColor: C.cloud }} className="w-full border rounded-lg px-3 py-2 text-[13px] mb-2 outline-none resize-none" />
