@@ -3,7 +3,7 @@ import {
   Home, CalendarDays, Users, Radio, MoreHorizontal, MapPin, Clock, Heart,
   ChevronRight, ChevronLeft, Search, Bell, LogOut, Send, ThumbsUp,
   BarChart3, Plus, Check, Mic2, Coffee, Ship, PartyPopper, Mail,
-  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock
+  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock, Trash2
 } from "lucide-react";
 import { signInWithPassword, getCurrentUser, onAuthChange, signOut } from "./firebaseClient";
 import * as api from "./api";
@@ -805,6 +805,8 @@ function AnnouncementsView({ user, announcements, refresh }) {
   const [text, setText] = useState("");
   const [title, setTitle] = useState("");
   const [posting, setPosting] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const post = async () => {
     if (!title.trim() || !text.trim()) return;
@@ -815,6 +817,16 @@ function AnnouncementsView({ user, announcements, refresh }) {
       await refresh();
     } catch {}
     setPosting(false);
+  };
+
+  const remove = async (id) => {
+    setDeletingId(id);
+    try {
+      await api.deleteAnnouncement(id);
+      await refresh();
+    } catch {}
+    setDeletingId(null);
+    setConfirmId(null);
   };
 
   const timeAgo = (ts) => {
@@ -840,10 +852,29 @@ function AnnouncementsView({ user, announcements, refresh }) {
         )}
         {announcements.length === 0 && <p style={{ color: C.slate }} className="text-[13px] text-center pt-8">No announcements yet.</p>}
         {announcements.map((a) => (
-          <div key={a.id} style={{ borderColor: C.cloud }} className="bg-white border rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-1.5"><div style={{ background: C.blue + "15" }} className="rounded-full p-1.5"><Bell size={12} color={C.blue} /></div><p style={{ color: C.slate }} className="text-[11px]">{a.author} · {timeAgo(a.timestamp)}</p></div>
+          <div key={a.id} style={{ borderColor: confirmId === a.id ? "#C0342C" : C.cloud }} className="bg-white border rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div style={{ background: C.blue + "15" }} className="rounded-full p-1.5"><Bell size={12} color={C.blue} /></div>
+              <p style={{ color: C.slate }} className="text-[11px]">{a.author} · {timeAgo(a.timestamp)}</p>
+              {user.isOrganizer && confirmId !== a.id && (
+                <button onClick={() => setConfirmId(a.id)} className="ml-auto flex-shrink-0">
+                  <Trash2 size={14} color="#C0342C" />
+                </button>
+              )}
+            </div>
             <p style={{ color: C.navy }} className="font-bold text-[14px]">{a.title}</p>
             <p style={{ color: C.slate }} className="text-[13px] mt-1 leading-relaxed">{a.body}</p>
+            {confirmId === a.id && (
+              <div style={{ borderColor: C.cloud }} className="mt-3 pt-3 border-t flex items-center justify-between">
+                <span style={{ color: "#C0342C" }} className="text-[12px] font-medium">Delete this announcement?</span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setConfirmId(null)} style={{ color: C.slate }} className="text-[12px] font-semibold px-2 py-1">Cancel</button>
+                  <button onClick={() => remove(a.id)} disabled={deletingId === a.id} style={{ background: "#C0342C" }} className="text-white text-[12px] font-semibold rounded-lg px-3 py-1.5 disabled:opacity-60">
+                    {deletingId === a.id ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

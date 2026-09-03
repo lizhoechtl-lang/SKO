@@ -180,3 +180,13 @@ export async function removeAllowedEmail(email) {
   await deleteDoc(doc(db, "allowedAttendees", email));
 }
  
+
+/* Add this one function to the end of src/api.js
+   (needs deleteDoc, which should already be imported from earlier —
+   double check the firebase/firestore import line at the top of api.js
+   includes deleteDoc; add it if not.) */
+ 
+export async function deleteAnnouncement(id) {
+  await deleteDoc(doc(db, "announcements", id));
+}
+ 
