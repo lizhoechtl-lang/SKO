@@ -231,3 +231,84 @@ export function subscribeConversations(onChange) {
     };
   })));
 }
+
+/* ---------------------------------------------------------------------- */
+/*  ADD THESE TO THE END OF src/api.js                                    */
+/*  Uses collection, doc, getDoc, setDoc, addDoc, deleteDoc, getDocs,     */
+/*  query, orderBy, onSnapshot — all should already be imported from      */
+/*  earlier work. Double-check the firebase/firestore import line at the  */
+/*  top of api.js includes all of these; add any that are missing.       */
+/* ---------------------------------------------------------------------- */
+
+/* ---------------- Sessions ---------------- */
+
+export function subscribeSessions(onChange) {
+  return onSnapshot(collection(db, "sessions"), (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+}
+
+export async function upsertSession(id, data) {
+  await setDoc(doc(db, "sessions", id), data, { merge: true });
+}
+
+export async function deleteSession(id) {
+  await deleteDoc(doc(db, "sessions", id));
+}
+
+/* ---------------- Speakers ---------------- */
+
+export function subscribeSpeakers(onChange) {
+  return onSnapshot(collection(db, "speakers"), (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+}
+
+export async function upsertSpeaker(id, data) {
+  await setDoc(doc(db, "speakers", id), data, { merge: true });
+}
+
+export async function deleteSpeaker(id) {
+  await deleteDoc(doc(db, "speakers", id));
+}
+
+/* ---------------- Days ---------------- */
+
+export function subscribeDays(onChange) {
+  const q = query(collection(db, "days"), orderBy("day", "asc"));
+  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data())));
+}
+
+export async function upsertDay(dayNumber, data) {
+  await setDoc(doc(db, "days", String(dayNumber)), { day: dayNumber, ...data }, { merge: true });
+}
+
+export async function deleteDay(dayNumber) {
+  await deleteDoc(doc(db, "days", String(dayNumber)));
+}
+
+/* ---------------- Venue spots ---------------- */
+
+export function subscribeVenueSpots(onChange) {
+  return onSnapshot(collection(db, "venueSpots"), (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+}
+
+// Pass id=null to create a new spot (auto-generated ID); pass an existing
+// id to update that spot in place.
+export async function upsertVenueSpot(id, data) {
+  if (id) {
+    await setDoc(doc(db, "venueSpots", id), data, { merge: true });
+  } else {
+    await addDoc(collection(db, "venueSpots"), data);
+  }
+}
+
+export async function deleteVenueSpot(id) {
+  await deleteDoc(doc(db, "venueSpots", id));
+}
+
+/* ---------------- Event config (hotel name/address/map) ---------------- */
+
+export function subscribeEventConfig(onChange) {
+  return onSnapshot(doc(db, "eventConfig", "main"), (snap) => onChange(snap.exists() ? snap.data() : {}));
+}
+
+export async function updateEventConfig(data) {
+  await setDoc(doc(db, "eventConfig", "main"), data, { merge: true });
+}
