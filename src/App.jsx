@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from "react";
 import {
   Home, CalendarDays, Users, Radio, MoreHorizontal, MapPin, Clock, Heart,
   ChevronRight, ChevronLeft, Search, Bell, LogOut, Send, ThumbsUp,
   BarChart3, Plus, Check, Mic2, Coffee, Ship, PartyPopper, Mail,
-  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock, Trash2, MessageCircle, X, Edit3
+  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock, Trash2, MessageCircle, X, Edit3, Tag
 } from "lucide-react";
 import { signInWithPassword, getCurrentUser, onAuthChange, signOut } from "./firebaseClient";
 import * as api from "./api";
@@ -225,7 +225,7 @@ function BottomNav({ view, setView }) {
   return (
     <div style={{ borderColor: C.cloud, paddingBottom: "env(safe-area-inset-bottom)" }} className="flex-shrink-0 border-t bg-white flex items-stretch">
       {items.map((it) => {
-        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist","organizers","messages","inbox","agendaBuilder","speakerBuilder","venueBuilder"].includes(view));
+        const active = view === it.id || (it.id === "more" && ["speakers","network","venue","announcements","profile","allowlist","organizers","groups","messages","inbox","agendaBuilder","speakerBuilder","venueBuilder"].includes(view));
         const Icon = it.icon;
         return (
           <button key={it.id} onClick={() => setView(it.id)} className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5">
@@ -313,7 +313,7 @@ function HomeView({ user, announcements, setView, openSession, itinerary }) {
 /* ---------------------------------------------------------------------- */
 /*  AGENDA + SESSION/SPEAKER DETAIL + ITINERARY                            */
 /* ---------------------------------------------------------------------- */
-function SessionCard({ s, saved, onToggleSave, onOpen }) {
+function SessionCard({ s, saved, onToggleSave, onOpen, locked }) {
   const { speakers } = useContent();
   return (
     <button onClick={() => onOpen(s)} style={{ borderColor: C.cloud }} className="w-full bg-white border rounded-2xl p-4 text-left flex gap-3">
@@ -322,7 +322,11 @@ function SessionCard({ s, saved, onToggleSave, onOpen }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <TrackTag track={s.track} />
-          <button onClick={(e) => { e.stopPropagation(); onToggleSave(s.id); }} className="flex-shrink-0"><Heart size={16} color={C.blue} fill={saved ? C.blue : "none"} /></button>
+          {locked ? (
+            <span title="Assigned to your group — always in My Agenda" className="flex-shrink-0"><Lock size={14} color={C.amber} /></span>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); onToggleSave(s.id); }} className="flex-shrink-0"><Heart size={16} color={C.blue} fill={saved ? C.blue : "none"} /></button>
+          )}
         </div>
         <p style={{ color: C.navy }} className="font-bold text-[14px] leading-snug">{s.title}</p>
         <div style={{ color: C.slate }} className="flex items-center gap-3 text-[11.5px] mt-1.5 flex-wrap">
@@ -333,7 +337,7 @@ function SessionCard({ s, saved, onToggleSave, onOpen }) {
     </button>
   );
 }
-function AgendaView({ itinerary, toggleSave, openSession }) {
+function AgendaView({ itinerary, toggleSave, openSession, lockedIds = [] }) {
   const { sessions: allSessions, days } = useContent();
   const [day, setDay] = useState(null);
   const [track, setTrack] = useState("All");
@@ -357,12 +361,12 @@ function AgendaView({ itinerary, toggleSave, openSession }) {
       <div className="flex-1 overflow-y-auto px-4 pb-6 pt-1 space-y-2.5" style={{ background: C.bg }}>
         {activeDayInfo.sub && <p style={{ color: C.slate }} className="text-[11px] font-semibold uppercase tracking-wide pt-2 pb-1">{activeDayInfo.sub}</p>}
         {sessions.length === 0 && <p style={{ color: C.slate }} className="text-[13px] text-center pt-10">No sessions match this filter.</p>}
-        {sessions.map((s) => <SessionCard key={s.id} s={s} saved={itinerary.includes(s.id)} onToggleSave={toggleSave} onOpen={openSession} />)}
+        {sessions.map((s) => <SessionCard key={s.id} s={s} saved={itinerary.includes(s.id)} onToggleSave={toggleSave} onOpen={openSession} locked={lockedIds.includes(s.id)} />)}
       </div>
     </div>
   );
 }
-function SessionDetail({ session, itinerary, toggleSave, onClose, onOpenSpeaker, goLive }) {
+function SessionDetail({ session, itinerary, toggleSave, onClose, onOpenSpeaker, goLive, locked }) {
   const { speakers, days } = useContent();
   if (!session) return null;
   const saved = itinerary.includes(session.id);
@@ -376,9 +380,15 @@ function SessionDetail({ session, itinerary, toggleSave, onClose, onOpenSpeaker,
           <span className="flex items-center gap-2"><Clock size={14} />{dayInfo(days, session.day).date} · {session.start}–{session.end} (Istanbul time)</span>
           <span className="flex items-center gap-2"><MapPin size={14} />{session.room}, Istanbul Congress Center</span>
         </div>
-        <button onClick={() => toggleSave(session.id)} style={{ background: saved ? C.blue : C.white, borderColor: C.blue, color: saved ? C.white : C.blue }} className="mt-4 border rounded-xl py-2.5 px-4 font-semibold text-[13px] flex items-center gap-2">
-          <Heart size={15} fill={saved ? C.white : "none"} /> {saved ? "Saved to My Agenda" : "Add to My Agenda"}
-        </button>
+        {locked ? (
+          <div style={{ background: C.amber + "15", color: C.amber }} className="mt-4 rounded-xl py-2.5 px-4 font-semibold text-[13px] flex items-center gap-2">
+            <Lock size={15} /> Assigned to your group — always in My Agenda
+          </div>
+        ) : (
+          <button onClick={() => toggleSave(session.id)} style={{ background: saved ? C.blue : C.white, borderColor: C.blue, color: saved ? C.white : C.blue }} className="mt-4 border rounded-xl py-2.5 px-4 font-semibold text-[13px] flex items-center gap-2">
+            <Heart size={15} fill={saved ? C.white : "none"} /> {saved ? "Saved to My Agenda" : "Add to My Agenda"}
+          </button>
+        )}
         <p style={{ color: C.navy }} className="text-[14px] leading-relaxed mt-5">{session.desc}</p>
         {session.speakers.length > 0 && (
           <div className="mt-6">
@@ -435,15 +445,22 @@ function SpeakerDetail({ sp, onClose, onOpenSession }) {
     </div>
   );
 }
-function ItineraryView({ itinerary, toggleSave, openSession }) {
+function ItineraryView({ itinerary, toggleSave, openSession, lockedIds = [] }) {
   const { sessions, days } = useContent();
   const items = sessions.filter((s) => itinerary.includes(s.id)).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
   const byDay = {};
   items.forEach((s) => { (byDay[s.day] = byDay[s.day] || []).push(s); });
+  const hasAssigned = lockedIds.length > 0;
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <AppBar title="My Agenda" />
       <div className="flex-1 overflow-y-auto px-4 py-4" style={{ background: C.bg }}>
+        {hasAssigned && (
+          <div style={{ background: C.amber + "12", borderColor: C.amber + "40" }} className="border rounded-xl px-3.5 py-2.5 mb-4 flex items-start gap-2">
+            <Lock size={14} color={C.amber} className="flex-shrink-0 mt-0.5" />
+            <p style={{ color: C.navy }} className="text-[12px] leading-snug">Sessions marked with a lock were pre-assigned by the organizers and stay on your agenda.</p>
+          </div>
+        )}
         {items.length === 0 ? (
           <div className="text-center pt-16 px-6">
             <div style={{ background: C.blue + "15" }} className="inline-flex rounded-full p-4 mb-3"><Heart size={22} color={C.blue} /></div>
@@ -454,7 +471,7 @@ function ItineraryView({ itinerary, toggleSave, openSession }) {
           Object.keys(byDay).sort().map((d) => (
             <div key={d} className="mb-5">
               <Eyebrow color={C.slate}>{dayInfo(days, Number(d)).label} · {dayInfo(days, Number(d)).date}</Eyebrow>
-              <div className="mt-2 space-y-2.5">{byDay[d].map((s) => <SessionCard key={s.id} s={s} saved={true} onToggleSave={toggleSave} onOpen={openSession} />)}</div>
+              <div className="mt-2 space-y-2.5">{byDay[d].map((s) => <SessionCard key={s.id} s={s} saved={true} onToggleSave={toggleSave} onOpen={openSession} locked={lockedIds.includes(s.id)} />)}</div>
             </div>
           ))
         )}
@@ -728,10 +745,10 @@ function SessionForm({ session, days, speakers, onClose, onSaved }) {
     id: session.id, day: session.day, date: session.date, start: session.start, end: session.end,
     track: session.track, title: session.title, room: session.room,
     speaker1: session.speakers[0] || "", speaker2: session.speakers[1] || "", speaker3: session.speakers[2] || "",
-    desc: session.desc,
+    desc: session.desc, groups: (session.assignedGroups || []).join(", "),
   } : {
     id: "", day: days[0]?.day || 1, date: days[0]?.date || "", start: "", end: "",
-    track: TRACKS[1], title: "", room: "", speaker1: "", speaker2: "", speaker3: "", desc: "",
+    track: TRACKS[1], title: "", room: "", speaker1: "", speaker2: "", speaker3: "", desc: "", groups: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -743,10 +760,11 @@ function SessionForm({ session, days, speakers, onClose, onSaved }) {
     setSaving(true);
     try {
       const speakerIds = [form.speaker1, form.speaker2, form.speaker3].filter(Boolean);
+      const assignedGroups = form.groups.split(",").map((g) => g.trim()).filter(Boolean);
       await api.upsertSession(form.id.trim(), {
         day: Number(form.day), date: form.date, start: form.start, end: form.end,
         track: form.track, title: form.title.trim(), room: form.room.trim(),
-        speakers: speakerIds, desc: form.desc.trim(),
+        speakers: speakerIds, desc: form.desc.trim(), assignedGroups,
       });
       onSaved();
     } catch (e) {
@@ -815,6 +833,10 @@ function SessionForm({ session, days, speakers, onClose, onSaved }) {
       <Field label="Description">
         <textarea value={form.desc} onChange={(e) => set("desc", e.target.value)} rows={3} style={inputStyle} className={inputCls + " resize-none"} />
       </Field>
+      <Field label="Assigned groups (comma-separated, optional)">
+        <input value={form.groups} onChange={(e) => set("groups", e.target.value)} placeholder="e.g. VIP, APAC" style={inputStyle} className={inputCls} />
+      </Field>
+      <p style={{ color: C.slate }} className="text-[11px] -mt-2 mb-3 leading-snug">Delegates tagged with any of these groups (set in More → Manage Groups) get this session pre-added to their My Agenda, and can't remove it themselves.</p>
       {error && <p style={{ color: "#C0342C" }} className="text-[12px] mb-2">{error}</p>}
       <button onClick={save} disabled={saving} style={{ background: C.blue }} className="w-full text-white rounded-xl py-3 font-semibold text-[14px] disabled:opacity-60 mt-1">
         {saving ? "Saving…" : "Save session"}
@@ -908,6 +930,12 @@ function AgendaBuilderView({ user }) {
             <button key={s.id} onClick={() => setEditingSession(s)} style={{ borderColor: C.cloud }} className="w-full bg-white border rounded-xl p-3.5 text-left">
               <div className="flex items-center gap-2 mb-1"><TrackTag track={s.track} /><span style={{ color: C.slate }} className="text-[11px]">{dayInfo(days, s.day).label} · {s.start}</span></div>
               <p style={{ color: C.navy }} className="text-[13px] font-semibold truncate">{s.title}</p>
+              {(s.assignedGroups || []).length > 0 && (
+                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                  <Tag size={11} color={C.amber} />
+                  {s.assignedGroups.map((g) => <span key={g} style={{ background: C.amber + "15", color: C.amber }} className="rounded px-1.5 py-0.5 text-[10px] font-semibold">{g}</span>)}
+                </div>
+              )}
             </button>
           ))}
         </div>
@@ -1201,6 +1229,7 @@ function MoreView({ setView, user, onLogout }) {
       { id: "venueBuilder", label: "Venue Builder", icon: Edit3 },
       { id: "allowlist", label: "Manage Allowlist", icon: Shield },
       { id: "organizers", label: "Manage Organizers", icon: Star },
+      { id: "groups", label: "Manage Groups", icon: Tag },
       { id: "inbox", label: "Messages Inbox", icon: MessageCircle },
     ] : []),
   ];
@@ -1487,6 +1516,81 @@ function ManageOrganizersView({ user, onSelfChange }) {
 }
 
 /* ---------------------------------------------------------------------- */
+/*  GROUPS — tag delegates so matching sessions pre-fill their My Agenda   */
+/* ---------------------------------------------------------------------- */
+function ManageGroupsView({ user }) {
+  const [attendees, setAttendees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [drafts, setDrafts] = useState({});
+  const [savingEmail, setSavingEmail] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    setAttendees(await api.getAllAttendees());
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  if (!user.isOrganizer) {
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        <AppBar title="Manage Groups" />
+        <div className="flex-1 flex items-center justify-center px-6">
+          <p style={{ color: C.slate }} className="text-[13px] text-center">Organizer access only.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const list = attendees.filter((a) => a.name.toLowerCase().includes(q.toLowerCase()) || a.email.toLowerCase().includes(q.toLowerCase()));
+  const draftFor = (a) => (a.email in drafts ? drafts[a.email] : (a.groups || []).join(", "));
+
+  const save = async (a) => {
+    const groups = draftFor(a).split(",").map((g) => g.trim()).filter(Boolean);
+    setSavingEmail(a.email);
+    try {
+      await api.setAttendeeGroups(a.email, groups);
+      await load();
+      setDrafts((d) => { const next = { ...d }; delete next[a.email]; return next; });
+    } catch {}
+    setSavingEmail(null);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      <AppBar title="Manage Groups" />
+      <div style={{ borderColor: C.cloud }} className="px-4 py-3 border-b flex-shrink-0 flex items-center gap-2">
+        <Search size={15} color={C.slate} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search delegates…" className="flex-1 text-[13px] outline-none" />
+      </div>
+      <p style={{ color: C.slate }} className="text-[11.5px] px-4 pt-3 leading-snug">Tag a delegate with a group (e.g. "VIP", "APAC") to pre-add matching sessions to their My Agenda — they can't remove those. Assign groups to sessions in the Agenda Builder, using the exact same names.</p>
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2" style={{ background: C.bg }}>
+        {loading && <p style={{ color: C.slate }} className="text-[13px] text-center pt-8">Loading…</p>}
+        {!loading && list.map((a) => (
+          <div key={a.email} style={{ borderColor: C.cloud }} className="bg-white border rounded-xl px-3.5 py-2.5">
+            <p style={{ color: C.navy }} className="text-[13px] font-medium truncate">{a.name}</p>
+            <p style={{ color: C.slate }} className="text-[11px] truncate mb-2">{a.email}</p>
+            <div className="flex items-center gap-2">
+              <input
+                value={draftFor(a)}
+                onChange={(e) => setDrafts((d) => ({ ...d, [a.email]: e.target.value }))}
+                placeholder="e.g. VIP, APAC"
+                style={{ borderColor: C.cloud }}
+                className="flex-1 border rounded-lg px-2.5 py-1.5 text-[12.5px] outline-none"
+              />
+              <button onClick={() => save(a)} disabled={savingEmail === a.email} style={{ background: C.blue }} className="text-white rounded-lg px-3 py-1.5 text-[11.5px] font-semibold flex-shrink-0 disabled:opacity-60">
+                {savingEmail === a.email ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
 /*  ROOT APP                                                                */
 /* ---------------------------------------------------------------------- */
 export default function App() {
@@ -1559,7 +1663,20 @@ export default function App() {
 
   const handleLogout = async () => { await signOut(); setUser(null); setAuthUser(null); setView("home"); };
 
+  // Sessions pre-assigned to this delegate via a matching group tag — these
+  // are always part of "My Agenda" and can't be removed by the attendee.
+  const assignedSessionIds = useMemo(() => {
+    const userGroups = user?.groups || [];
+    if (!userGroups.length) return [];
+    return sessions.filter((s) => (s.assignedGroups || []).some((g) => userGroups.includes(g))).map((s) => s.id);
+  }, [sessions, user]);
+
+  // "My Agenda" = whatever the attendee saved themselves, union'd with
+  // whatever their group was pre-assigned.
+  const effectiveItinerary = useMemo(() => Array.from(new Set([...itinerary, ...assignedSessionIds])), [itinerary, assignedSessionIds]);
+
   const toggleSave = async (sessionId) => {
+    if (assignedSessionIds.includes(sessionId)) return; // locked — pre-assigned by organizers
     const isSaved = itinerary.includes(sessionId);
     setItinerary(isSaved ? itinerary.filter((id) => id !== sessionId) : [...itinerary, sessionId]);
     await api.toggleItinerary(user.email, sessionId, isSaved);
@@ -1584,9 +1701,9 @@ export default function App() {
           <div className="flex-1 flex items-center justify-center"><p style={{ color: C.slate }} className="text-[13px]">Loading…</p></div>
         ) : (
           <ContentContext.Provider value={{ sessions, speakers, days, venueSpots, eventConfig, contentLoading }}>
-            {view === "home" && <HomeView user={user} announcements={announcements} setView={setView} openSession={openSession} itinerary={itinerary} />}
-            {view === "agenda" && <AgendaView itinerary={itinerary} toggleSave={toggleSave} openSession={openSession} />}
-            {view === "itinerary" && <ItineraryView itinerary={itinerary} toggleSave={toggleSave} openSession={openSession} />}
+            {view === "home" && <HomeView user={user} announcements={announcements} setView={setView} openSession={openSession} itinerary={effectiveItinerary} />}
+            {view === "agenda" && <AgendaView itinerary={effectiveItinerary} toggleSave={toggleSave} openSession={openSession} lockedIds={assignedSessionIds} />}
+            {view === "itinerary" && <ItineraryView itinerary={effectiveItinerary} toggleSave={toggleSave} openSession={openSession} lockedIds={assignedSessionIds} />}
             {view === "live" && <LiveView user={user} />}
             {view === "more" && <MoreView setView={setView} user={user} onLogout={handleLogout} />}
             {view === "speakers" && <SpeakersView onOpenSpeaker={openSpeaker} />}
@@ -1595,13 +1712,14 @@ export default function App() {
             {view === "announcements" && <AnnouncementsView user={user} announcements={announcements} refresh={loadAnnouncements} />}
             {view === "allowlist" && <AllowlistView user={user} />}
             {view === "organizers" && <ManageOrganizersView user={user} onSelfChange={(v) => setUser({ ...user, isOrganizer: v })} />}
+            {view === "groups" && <ManageGroupsView user={user} />}
             {view === "messages" && <MessageThread user={user} threadEmail={user.email} threadTitle="Message Organizers" />}
             {view === "inbox" && <OrganizerInboxView user={user} onOpenThread={(email, name) => setSelectedThread({ email, name })} />}
             {view === "agendaBuilder" && <AgendaBuilderView user={user} />}
             {view === "speakerBuilder" && <SpeakerBuilderView user={user} />}
             {view === "venueBuilder" && <VenueBuilderView user={user} />}
             <BottomNav view={view} setView={setView} />
-            {selectedSession && <SessionDetail session={selectedSession} itinerary={itinerary} toggleSave={toggleSave} onClose={() => setSelectedSession(null)} onOpenSpeaker={openSpeaker} goLive={goLiveFor} />}
+            {selectedSession && <SessionDetail session={selectedSession} itinerary={effectiveItinerary} toggleSave={toggleSave} onClose={() => setSelectedSession(null)} onOpenSpeaker={openSpeaker} goLive={goLiveFor} locked={assignedSessionIds.includes(selectedSession.id)} />}
             {selectedSpeaker && <SpeakerDetail sp={selectedSpeaker} onClose={() => setSelectedSpeaker(null)} onOpenSession={(s) => { setSelectedSpeaker(null); setSelectedSession(s); }} />}
             {selectedThread && <MessageThread user={user} threadEmail={selectedThread.email} threadTitle={selectedThread.name} onBack={() => setSelectedThread(null)} overlay />}
           </ContentContext.Provider>

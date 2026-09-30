@@ -312,3 +312,13 @@ export function subscribeEventConfig(onChange) {
 export async function updateEventConfig(data) {
   await setDoc(doc(db, "eventConfig", "main"), data, { merge: true });
 }
+
+/* ---------------------------------------------------------------------- */
+/*  ADD THIS TO THE END OF src/api.js                                    */
+/*  Powers the new "Manage Groups" screen (More → Manage Groups). It      */
+/*  reuses updateDoc/doc, already imported from earlier work.             */
+/* ---------------------------------------------------------------------- */
+
+export async function setAttendeeGroups(email, groups) {
+  await updateDoc(doc(db, "attendees", email), { groups });
+}
