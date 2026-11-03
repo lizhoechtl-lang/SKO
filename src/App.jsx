@@ -3,7 +3,7 @@ import {
   Home, CalendarDays, Users, Radio, MoreHorizontal, MapPin, Clock, Heart,
   ChevronRight, ChevronLeft, Search, Bell, LogOut, Send, ThumbsUp,
   BarChart3, Plus, Check, Mic2, Coffee, Ship, PartyPopper, Mail,
-  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock, Trash2, MessageCircle, X, Edit3, Tag
+  ArrowRight, Sparkles, Building2, Star, Briefcase, Navigation, Shield, Lock, Trash2, MessageCircle, X, Edit3, Tag, ZoomIn, ZoomOut, Layers
 } from "lucide-react";
 import { signInWithPassword, getCurrentUser, onAuthChange, signOut } from "./firebaseClient";
 import * as api from "./api";
@@ -666,6 +666,60 @@ function NetworkView({ user }) {
 /* ---------------------------------------------------------------------- */
 /*  VENUE & MAP                                                             */
 /* ---------------------------------------------------------------------- */
+// Full-screen floor plan viewer with zoom buttons; the image scrolls/pans
+// inside, and native pinch-zoom works on top where the browser allows it.
+function FloorplanViewer({ plan, onClose }) {
+  const [zoom, setZoom] = useState(1);
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col" style={{ background: C.navy }}>
+      <div className="flex items-center justify-between px-4 pb-3 flex-shrink-0" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
+        <p style={{ color: C.white }} className="font-semibold text-[14px] truncate pr-3">{plan.label || "Floor plan"}</p>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <button onClick={() => setZoom((z) => Math.max(1, z - 0.5))} disabled={zoom <= 1} className="disabled:opacity-40"><ZoomOut size={20} color={C.white} /></button>
+          <button onClick={() => setZoom((z) => Math.min(4, z + 0.5))} disabled={zoom >= 4} className="disabled:opacity-40"><ZoomIn size={20} color={C.white} /></button>
+          <button onClick={onClose}><X size={22} color={C.white} /></button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto bg-white" style={{ touchAction: "pan-x pan-y pinch-zoom", paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <img src={plan.url} alt={plan.label || "Floor plan"} style={{ width: `${zoom * 100}%`, maxWidth: "none", display: "block" }} />
+      </div>
+    </div>
+  );
+}
+
+function FloorplanSection() {
+  const { eventConfig } = useContent();
+  const plans = (eventConfig.floorplans || []).filter((p) => p && p.url);
+  const [idx, setIdx] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [broken, setBroken] = useState({});
+  if (!plans.length) return null;
+  const plan = plans[Math.min(idx, plans.length - 1)];
+  return (
+    <div className="px-4 mt-5">
+      <Eyebrow color={C.slate}>Floor plan</Eyebrow>
+      {plans.length > 1 && (
+        <div className="flex gap-2 mt-2.5 overflow-x-auto">
+          {plans.map((p, i) => (
+            <button key={i} onClick={() => setIdx(i)} style={{ background: i === idx ? C.navy : C.white, color: i === idx ? C.white : C.slate, borderColor: C.cloud }} className="border rounded-full px-3 py-1.5 text-[11.5px] font-semibold flex-shrink-0 whitespace-nowrap">{p.label || `Level ${i + 1}`}</button>
+          ))}
+        </div>
+      )}
+      <button onClick={() => !broken[plan.url] && setOpen(true)} style={{ borderColor: C.cloud }} className="mt-2.5 w-full bg-white border rounded-2xl overflow-hidden text-left">
+        {broken[plan.url] ? (
+          <p style={{ color: C.slate }} className="text-[12.5px] p-4">The floor plan couldn't be loaded right now.</p>
+        ) : (
+          <>
+            <img src={plan.url} alt={plan.label || "Floor plan"} onError={() => setBroken((b) => ({ ...b, [plan.url]: true }))} style={{ width: "100%", display: "block" }} />
+            <div style={{ borderColor: C.cloud, color: C.blue }} className="border-t px-3.5 py-2 flex items-center gap-1.5 text-[11.5px] font-semibold"><ZoomIn size={13} /> Tap to enlarge{plan.label ? ` · ${plan.label}` : ""}</div>
+          </>
+        )}
+      </button>
+      {open && <FloorplanViewer plan={plan} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 function VenueView() {
   const { venueSpots, eventConfig } = useContent();
   return (
@@ -682,6 +736,7 @@ function VenueView() {
             </a>
           </div>
         </div>
+        <FloorplanSection />
         <div className="px-4 py-5 space-y-3">
           {venueSpots.map((s) => {
             const Icon = VENUE_ICONS[s.iconKey] || MapPin;
@@ -1079,10 +1134,16 @@ function VenueBuilderView({ user }) {
   const [editing, setEditing] = useState(undefined);
   const [hotel, setHotel] = useState({ hotelName: eventConfig.hotelName || "", hotelAddress: eventConfig.hotelAddress || "", mapQuery: eventConfig.mapQuery || "" });
   const [savingHotel, setSavingHotel] = useState(false);
+  const [plans, setPlans] = useState(eventConfig.floorplans || []);
+  const [savingPlans, setSavingPlans] = useState(false);
+  const [plansSaved, setPlansSaved] = useState(false);
+  const plansKey = JSON.stringify(eventConfig.floorplans || []);
 
   useEffect(() => {
     setHotel({ hotelName: eventConfig.hotelName || "", hotelAddress: eventConfig.hotelAddress || "", mapQuery: eventConfig.mapQuery || "" });
   }, [eventConfig.hotelName, eventConfig.hotelAddress, eventConfig.mapQuery]);
+
+  useEffect(() => { setPlans(JSON.parse(plansKey)); }, [plansKey]);
 
   if (!user.isOrganizer) {
     return (
@@ -1099,6 +1160,16 @@ function VenueBuilderView({ user }) {
     setSavingHotel(false);
   };
 
+  const updatePlan = (i, k, v) => setPlans((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
+  const savePlans = async () => {
+    setSavingPlans(true); setPlansSaved(false);
+    try {
+      await api.updateEventConfig({ floorplans: plans.filter((p) => (p.url || "").trim()).map((p) => ({ label: (p.label || "").trim(), url: p.url.trim() })) });
+      setPlansSaved(true);
+    } catch {}
+    setSavingPlans(false);
+  };
+
   return (
     <div className="flex-1 flex flex-col min-h-0 relative">
       <AppBar title="Venue Builder" />
@@ -1109,6 +1180,26 @@ function VenueBuilderView({ user }) {
           <Field label="Address"><input value={hotel.hotelAddress} onChange={(e) => setHotel({ ...hotel, hotelAddress: e.target.value })} style={inputStyle} className={inputCls} /></Field>
           <Field label="Map search query"><input value={hotel.mapQuery} onChange={(e) => setHotel({ ...hotel, mapQuery: e.target.value })} style={inputStyle} className={inputCls} /></Field>
           <button onClick={saveHotel} disabled={savingHotel} style={{ background: C.blue }} className="text-white text-[12.5px] font-semibold rounded-lg px-3.5 py-2">{savingHotel ? "Saving…" : "Save venue info"}</button>
+        </div>
+
+        <div style={{ borderColor: C.cloud }} className="bg-white border rounded-2xl p-3.5 mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <p style={{ color: C.slate }} className="text-[10.5px] font-bold uppercase tracking-wide flex items-center gap-1.5"><Layers size={12} /> Floor plans</p>
+            <button onClick={() => { setPlans([...plans, { label: "", url: "" }]); setPlansSaved(false); }} style={{ color: C.blue }} className="text-[12px] font-semibold flex items-center gap-1"><Plus size={13} /> Add</button>
+          </div>
+          <p style={{ color: C.slate }} className="text-[11px] leading-snug mb-3">Paste an image link, or a file path like <span className="font-semibold">/floorplans/level1.png</span> for an image in your project's public folder. Add one per level.</p>
+          {plans.length === 0 && <p style={{ color: C.slate }} className="text-[12px] mb-2">No floor plans yet.</p>}
+          {plans.map((p, i) => (
+            <div key={i} style={{ borderColor: C.cloud }} className="border rounded-xl p-2.5 mb-2.5">
+              <div className="flex items-center gap-2 mb-2">
+                <input value={p.label || ""} onChange={(e) => updatePlan(i, "label", e.target.value)} placeholder="Label, e.g. Congress Level" style={inputStyle} className={inputCls} />
+                <button onClick={() => { setPlans(plans.filter((_, j) => j !== i)); setPlansSaved(false); }} className="flex-shrink-0"><Trash2 size={16} color="#C0342C" /></button>
+              </div>
+              <input value={p.url || ""} onChange={(e) => updatePlan(i, "url", e.target.value)} placeholder="/floorplans/level1.png or https://…" style={inputStyle} className={inputCls} />
+            </div>
+          ))}
+          <button onClick={savePlans} disabled={savingPlans} style={{ background: C.blue }} className="text-white text-[12.5px] font-semibold rounded-lg px-3.5 py-2 disabled:opacity-60">{savingPlans ? "Saving…" : "Save floor plans"}</button>
+          {plansSaved && <span style={{ color: C.green }} className="text-[12px] font-semibold ml-3">Saved</span>}
         </div>
 
         <div className="flex items-center justify-between mb-2 px-1">
